@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"log"
+	"regexp"
+	"strings"
+
+	"github.com/869413421/wechatbot/config"
 	"github.com/869413421/wechatbot/gtp"
 	"github.com/eatmoreapple/openwechat"
-	"log"
-	"strings"
 )
 
 var _ MessageHandlerInterface = (*GroupMessageHandler)(nil)
@@ -41,7 +44,19 @@ func (g *GroupMessageHandler) ReplyText(msg *openwechat.Message) error {
 	// 替换掉@文本，然后向GPT发起请求
 	replaceText := "@" + sender.Self.NickName
 	requestText := strings.TrimSpace(strings.ReplaceAll(msg.Content, replaceText, ""))
-	reply, err := gtp.Completions(requestText)
+	var reply string
+
+	reg := regexp.MustCompile(`role:(.*)`)
+	if requestText == "help" {
+		reply = config.HelpText
+		// 判断requestText是否包含"role:"
+	} else if reg.MatchString(requestText) {
+		// 匹配role:后面的内容
+		role := reg.FindStringSubmatch(requestText)[1]
+		reply, err = gtp.Completions(g.getSessionId(group), role, role)
+	} else {
+		reply, err = gtp.Completions(g.getSessionId(group), requestText, "")
+	}
 	if err != nil {
 		log.Printf("gtp request error: %v \n", err)
 		msg.ReplyText("机器人神了，我一会发现了就去修。")
@@ -62,10 +77,17 @@ func (g *GroupMessageHandler) ReplyText(msg *openwechat.Message) error {
 	reply = strings.TrimSpace(reply)
 	reply = strings.Trim(reply, "\n")
 	atText := "@" + groupSender.NickName
-	replyText := atText + reply
+	replyText := atText + `
+	--输入"help"查看帮助--
+	` + reply
 	_, err = msg.ReplyText(replyText)
 	if err != nil {
 		log.Printf("response group error: %v \n", err)
 	}
 	return err
+}
+
+// 通过group生成sessionId
+func (g *GroupMessageHandler) getSessionId(group openwechat.Group) string {
+	return group.NickName + "-" + group.UserName
 }
