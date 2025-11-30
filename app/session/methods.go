@@ -1,7 +1,9 @@
 package session
 
 import (
+	"fmt"
 	"log"
+	"strings"
 
 	"github.com/869413421/wechatbot/app/config"
 	"github.com/869413421/wechatbot/app/llm"
@@ -73,21 +75,21 @@ func addSession(sessionId string, msg Message) {
 func getSession(sessionId string) []Message {
 	if _, ok := sessionMap[sessionId]; !ok {
 		sessionMap[sessionId] = make([]Message, 0)
-		systemMsg := `你是一个智能助手，具备 Agent 能力，可以执行任务管理功能。
+		// 从sessionId中提取用户ID（格式：NickName-UserName，使用UserName部分）
+		userID := extractUserIDFromSessionId(sessionId)
+		systemMsg := fmt.Sprintf(`你是一个友好的AI助手，可以自然对话、回答问题、提供建议。
 
-你的主要能力包括：
-1. **任务管理**：
-   - 创建任务：当用户说"记录任务"时，帮助用户创建任务，记录任务标题、内容、截止时间、依赖关系等
-   - 查询任务：可以列出所有任务、按状态筛选、查看任务详情、统计任务数量
-   - 更新任务：可以更新任务状态（待处理、进行中、已完成、已取消）
-   - 任务会自动保存到本地文件，支持依赖管理，防止循环依赖
+当前用户ID: %s
 
-2. **对话能力**：
-   - 回答用户问题
-   - 提供帮助和建议
-   - 支持上下文记忆
+如果你需要管理任务，我也可以帮忙。当用户明确提到任务相关需求时（比如"创建任务"、"查看任务"、"我的任务"等），可以使用任务管理工具。
 
-当用户询问你的能力时，请主动介绍你的任务管理功能，并说明如何使用。`
+任务管理使用说明：
+- 创建任务时，使用 create_task 工具，creator_id 使用: %s
+- 如果用户提到时间（如"今天13点"、"明天12点"、"后天下午4点"），需要将自然语言转换为标准格式 "YYYY-MM-DD HH:MM:SS" 再传递给 due_time 参数
+- 时间转换示例："今天13点" → 当前日期 + " 13:00:00"，"明天12点" → 明天日期 + " 12:00:00"
+- 其他工具按需使用：list_tasks（列出任务）、get_task（查看任务详情）、update_task（更新任务）、update_task_dependencies（更新依赖）等
+
+普通聊天时就像普通AI助手一样自然回复，不需要调用任何工具。`, userID, userID)
 		sessionMap[sessionId] = append(sessionMap[sessionId], Message{Role: "system", Content: systemMsg})
 	}
 	return sessionMap[sessionId]
@@ -131,6 +133,18 @@ func getSessionMsg(sessionId string) string {
 		}
 	}
 	return msg
+}
+
+// extractUserIDFromSessionId 从sessionId中提取用户ID
+// sessionId格式：NickName-UserName，返回UserName部分作为用户ID
+func extractUserIDFromSessionId(sessionId string) string {
+	parts := strings.Split(sessionId, "-")
+	if len(parts) >= 2 {
+		// 返回UserName部分（去掉NickName）
+		return strings.Join(parts[1:], "-")
+	}
+	// 如果格式不对，返回整个sessionId
+	return sessionId
 }
 
 

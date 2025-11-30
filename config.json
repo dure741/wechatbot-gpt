@@ -2,5 +2,13 @@
   "api_key": "sk-3f5c13ffeb624a17b7498a5b561aa42c",
   "model_name": "deepseek-chat",
   "auto_pass": true,
-  "max_msg": 15
+  "max_msg": 15,
+  "mysql": {
+    "host": "localhost",
+    "port": 3306,
+    "user": "root",
+    "password": "|N_dyLB91G+fNMhI*)%byFen}QeL:6jA",
+    "database": "wechatbot_tasks",
+    "charset": "utf8mb4"
+  }
 }

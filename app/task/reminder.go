@@ -32,21 +32,19 @@ func StartReminderService(notifyFunc func(tasks []*Task)) {
 
 // GetUpcomingTasks 获取即将到期的任务
 func (tm *TaskManager) GetUpcomingTasks(duration time.Duration) []*Task {
-	mu.RLock()
-	defer mu.RUnlock()
-	
 	now := time.Now()
 	deadline := now.Add(duration)
-	upcoming := make([]*Task, 0)
+	var tasks []*Task
 	
-	for _, task := range tm.tasks {
-		if task.Status != StatusCompleted && task.Status != StatusCancelled {
-			if task.DueTime.After(now) && task.DueTime.Before(deadline) {
-				upcoming = append(upcoming, task)
-			}
-		}
+	if err := tm.db.Preload("Dependencies").
+		Where("status NOT IN ? AND due_time IS NOT NULL AND due_time > ? AND due_time < ?", 
+			[]string{StatusCompleted, StatusCancelled}, now, deadline).
+		Order("due_time ASC").
+		Find(&tasks).Error; err != nil {
+		log.Printf("ERROR: Failed to get upcoming tasks: %v\n", err)
+		return []*Task{}
 	}
 	
-	return upcoming
+	return tasks
 }
 
