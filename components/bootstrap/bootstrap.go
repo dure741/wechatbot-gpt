@@ -10,6 +10,13 @@ import (
 var globalBot *openwechat.Bot
 
 func Run() {
+	// 初始化数据库
+	log.Printf("Initializing database...\n")
+	if err := task.InitDatabase(); err != nil {
+		log.Fatalf("Failed to initialize database: %v\n", err)
+	}
+	log.Printf("Database initialized successfully\n")
+
 	//bot := openwechat.DefaultBot()
 	bot := openwechat.DefaultBot(openwechat.Desktop) // 桌面模式，上面登录不上的可以尝试切换这种模式
 	globalBot = bot
