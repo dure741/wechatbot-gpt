@@ -16,3 +16,8 @@ tasks.json
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# Executable and log files
+wechatbot
+wechatbot.log
+*.log
