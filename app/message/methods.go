@@ -124,14 +124,27 @@ func (g *GroupMessageHandler) ReplyText(msg *openwechat.Message) error {
 	group := openwechat.Group{sender}
 	log.Printf("Received Group %v Text Msg : %v", group.NickName, msg.Content)
 
-	// 不是@的不处理
-	if !msg.IsAt() {
-		return nil
+	// 检查是否@了机器人
+	isAt := msg.IsAt()
+	self := sender.Self()
+	selfNickName := self.NickName
+	log.Printf("Group message IsAt() result: %v, Content contains @: %v, Bot nickname: %v", isAt, strings.Contains(msg.Content, "@"), selfNickName)
+	
+	// 不是@的不处理，但如果消息内容包含@和机器人昵称，也认为是@了机器人
+	if !isAt {
+		// 如果消息内容包含@符号和机器人昵称，可能是IsAt()方法失效，尝试通过内容判断
+		if strings.Contains(msg.Content, "@") && strings.Contains(msg.Content, selfNickName) {
+			log.Printf("Warning: Message contains @ and bot name but IsAt() returned false, processing anyway")
+			// 继续处理
+		} else {
+			log.Printf("Group message not @ bot, skipping")
+			return nil
+		}
 	}
 
 	// 替换掉@文本，然后向GPT发起请求
-	self := sender.Self()
-	replaceText := "@" + self.NickName
+	// self 和 selfNickName 已在上面定义
+	replaceText := "@" + selfNickName
 	requestText := strings.TrimSpace(strings.ReplaceAll(msg.Content, replaceText, ""))
 	var reply string
 
