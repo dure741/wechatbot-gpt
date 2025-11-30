@@ -1,0 +1,6 @@
+{
+  "api_key": "sk-3f5c13ffeb624a17b7498a5b561aa42c",
+  "model_name": "deepseek-chat",
+  "auto_pass": true,
+  "max_msg": 15
+}
