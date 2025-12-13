@@ -223,13 +223,17 @@ func (tm *TaskManager) UpdateTaskDependencies(taskID uint, dependencies []uint) 
 	return err
 }
 
-// ListTasks 列出所有任务
-func (tm *TaskManager) ListTasks(status string) []*Task {
+// ListTasks 列出任务（支持按状态和创建人筛选）
+func (tm *TaskManager) ListTasks(status string, creatorID string) []*Task {
 	var tasks []*Task
 	query := tm.db.Preload("Dependencies")
 	
 	if status != "" {
 		query = query.Where("status = ?", status)
+	}
+	
+	if creatorID != "" {
+		query = query.Where("creator_id = ?", creatorID)
 	}
 	
 	if err := query.Order("create_time DESC").Find(&tasks).Error; err != nil {

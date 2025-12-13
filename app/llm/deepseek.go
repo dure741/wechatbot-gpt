@@ -13,9 +13,6 @@ import (
 	"github.com/869413421/wechatbot/app/config"
 )
 
-// 默认 DeepSeek API 密钥（兜底）
-const DefaultDeepSeekApiKey = "REPLACED_API_KEY"
-
 // DeepSeekProvider DeepSeek 提供者实现
 type DeepSeekProvider struct {
 	apiKey    string
@@ -31,11 +28,10 @@ func NewDeepSeekProvider() *DeepSeekProvider {
 		modelName = "deepseek-chat"
 	}
 
-	// 使用配置的 API 密钥，如果为空则使用默认密钥作为兜底
+	// 使用配置的 API 密钥，如果为空则报错
 	apiKey := cfg.ApiKey
 	if apiKey == "" {
-		apiKey = DefaultDeepSeekApiKey
-		log.Printf("Using default DeepSeek API key as fallback\n")
+		log.Fatalf("DeepSeek API key is required. Please set it in config.json or environment variable ApiKey")
 	}
 
 	return &DeepSeekProvider{

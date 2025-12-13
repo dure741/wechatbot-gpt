@@ -250,14 +250,20 @@ func parseTimeForDate(date time.Time, timeStr string) (time.Time, error) {
 	return time.Date(date.Year(), date.Month(), date.Day(), hour, minute, second, 0, time.Local), nil
 }
 
-// listTasks 列出任务
+// listTasks 列出任务（支持查看所有任务或按用户筛选）
 func (e *Executor) listTasks(args map[string]interface{}) (string, error) {
 	tm := task.GetTaskManager()
 
 	status, _ := args["status"].(string)
-	tasks := tm.ListTasks(status)
+	creatorID, _ := args["creator_id"].(string)
+	
+	// 如果传入了creator_id，使用它；否则查看所有任务
+	tasks := tm.ListTasks(status, creatorID)
 
 	if len(tasks) == 0 {
+		if creatorID != "" {
+			return "📋 该用户暂无任务", nil
+		}
 		return "📋 暂无任务", nil
 	}
 
@@ -533,11 +539,11 @@ func (e *Executor) searchTasks(args map[string]interface{}) (string, error) {
 	}
 	if keyword == "" {
 		// 如果都没有，列出所有任务
-		return task.FormatTaskListForDisplay(tm.ListTasks("")), nil
+		return task.FormatTaskListForDisplay(tm.ListTasks("", "")), nil
 	}
 
 	// 获取所有任务并过滤
-	allTasks := tm.ListTasks("")
+	allTasks := tm.ListTasks("", "")
 	matchedTasks := make([]*task.Task, 0)
 
 	for _, t := range allTasks {
@@ -600,7 +606,7 @@ func (e *Executor) GetAvailableCommands() []map[string]interface{} {
 	return []map[string]interface{}{
 		{
 			"name":        "create_task",
-			"description": "创建新任务。只在用户明确要求创建任务时使用（如'记录任务'、'创建任务'等）。用户说出的内容就是任务内容，从中提取标题和截止时间。普通聊天不使用。",
+			"description": "创建新任务。**重要：只有在用户明确说出'创建任务'、'记录任务'、'添加任务'等明确的任务创建指令时才使用此工具。如果用户只是分享计划、想法或讨论要做的事情（如'我要完成报告'、'明天要开会'），这是普通对话，不要使用此工具，正常回复即可。**用户明确要求创建任务时，用户说出的内容就是任务内容，从中提取标题和截止时间。",
 			"parameters": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -633,13 +639,17 @@ func (e *Executor) GetAvailableCommands() []map[string]interface{} {
 		},
 		{
 			"name":        "list_tasks",
-			"description": "列出任务。只在用户明确询问任务列表时使用（如'我的任务'、'列出任务'等）。普通聊天不使用。",
+			"description": "列出任务。只在用户明确询问任务列表时使用（如'我的任务'、'列出任务'、'所有任务'等）。普通聊天不使用。支持查看所有任务（团队协作）或特定用户的任务。",
 			"parameters": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"status": map[string]interface{}{
 						"type":        "string",
-						"description": "任务状态筛选：pending（待处理）、in_progress（进行中）、completed（已完成）、cancelled（已取消），为空则列出所有任务",
+						"description": "任务状态筛选：pending（待处理）、in_progress（进行中）、completed（已完成）、cancelled（已取消），为空则列出所有状态的任务",
+					},
+					"creator_id": map[string]interface{}{
+						"type":        "string",
+						"description": "创建人ID筛选（可选）。如果用户说'我的任务'、'查看我的任务'，传入当前用户ID；如果用户说'所有任务'、'查看所有任务'、'团队任务'等，不传此参数或传空字符串（查看所有任务，团队协作模式）；如果用户指定查看某个人的任务，传入对应的用户ID。如果不传此参数，默认查看所有任务（团队协作模式）。",
 					},
 				},
 			},

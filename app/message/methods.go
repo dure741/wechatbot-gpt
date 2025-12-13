@@ -10,6 +10,52 @@ import (
 	"github.com/eatmoreapple/openwechat"
 )
 
+// removeMarkdown 去除markdown语法，转换为纯文本
+func removeMarkdown(text string) string {
+	// 去除代码块 ```code```
+	text = regexp.MustCompile("(?s)```[\\w]*\\n(.*?)```").ReplaceAllString(text, "$1")
+	
+	// 去除行内代码 `code`
+	text = regexp.MustCompile("`([^`]+)`").ReplaceAllString(text, "$1")
+	
+	// 去除粗体 **text** 或 __text__
+	text = regexp.MustCompile("\\*\\*([^*]+)\\*\\*").ReplaceAllString(text, "$1")
+	text = regexp.MustCompile("__([^_]+)__").ReplaceAllString(text, "$1")
+	
+	// 去除斜体 *text* 或 _text_
+	text = regexp.MustCompile("\\*([^*]+)\\*").ReplaceAllString(text, "$1")
+	text = regexp.MustCompile("_([^_]+)_").ReplaceAllString(text, "$1")
+	
+	// 去除删除线 ~~text~~
+	text = regexp.MustCompile("~~([^~]+)~~").ReplaceAllString(text, "$1")
+	
+	// 去除标题标记 # ## ### 等
+	text = regexp.MustCompile("^#{1,6}\\s+(.+)$").ReplaceAllString(text, "$1")
+	
+	// 去除链接 [text](url) -> text
+	text = regexp.MustCompile("\\[([^\\]]+)\\]\\([^\\)]+\\)").ReplaceAllString(text, "$1")
+	
+	// 去除图片 ![alt](url) -> alt
+	text = regexp.MustCompile("!\\[([^\\]]*)\\]\\([^\\)]+\\)").ReplaceAllString(text, "$1")
+	
+	// 去除列表标记 - * + 和数字列表
+	lines := strings.Split(text, "\n")
+	var result []string
+	for _, line := range lines {
+		// 去除无序列表标记
+		line = regexp.MustCompile("^\\s*[-*+]\\s+").ReplaceAllString(line, "")
+		// 去除有序列表标记
+		line = regexp.MustCompile("^\\s*\\d+\\.\\s+").ReplaceAllString(line, "")
+		result = append(result, line)
+	}
+	text = strings.Join(result, "\n")
+	
+	// 去除多余的空行（保留最多一个空行）
+	text = regexp.MustCompile("\n{3,}").ReplaceAllString(text, "\n\n")
+	
+	return strings.TrimSpace(text)
+}
+
 // handlers 所有消息类型类型的处理器
 var handlers map[HandlerType]MessageHandlerInterface
 
@@ -67,15 +113,10 @@ func (g *UserMessageHandler) ReplyText(msg *openwechat.Message) error {
 	requestText = strings.Trim(msg.Content, "\n")
 	var reply string
 
-	reg := regexp.MustCompile(`role:(.*)`)
 	if requestText == "help" {
 		reply = config.HelpText
-		// 判断requestText是否包含"role:"
-	} else if reg.MatchString(requestText) {
-		// 匹配role:后面的内容
-		role := reg.FindStringSubmatch(requestText)[1]
-		reply, err = session.Completions(g.getSessionId(sender), role, role)
 	} else {
+		// 移除角色修改功能，直接处理消息
 		reply, err = session.Completions(g.getSessionId(sender), requestText, "")
 	}
 	if err != nil {
@@ -88,7 +129,8 @@ func (g *UserMessageHandler) ReplyText(msg *openwechat.Message) error {
 		reply = "抱歉，我暂时无法处理这个请求，请稍后再试。"
 	}
 
-	// 回复用户
+	// 去除markdown语法并回复用户
+	reply = removeMarkdown(reply)
 	reply = strings.TrimSpace(reply)
 	reply = strings.Trim(reply, "\n")
 	log.Printf("Sending reply to user: %s\n", reply)
@@ -148,15 +190,10 @@ func (g *GroupMessageHandler) ReplyText(msg *openwechat.Message) error {
 	requestText := strings.TrimSpace(strings.ReplaceAll(msg.Content, replaceText, ""))
 	var reply string
 
-	reg := regexp.MustCompile(`role:(.*)`)
 	if requestText == "help" {
 		reply = config.HelpText
-		// 判断requestText是否包含"role:"
-	} else if reg.MatchString(requestText) {
-		// 匹配role:后面的内容
-		role := reg.FindStringSubmatch(requestText)[1]
-		reply, err = session.Completions(g.getSessionId(group), role, role)
 	} else {
+		// 移除角色修改功能，直接处理消息
 		reply, err = session.Completions(g.getSessionId(group), requestText, "")
 	}
 	if err != nil {
@@ -176,13 +213,12 @@ func (g *GroupMessageHandler) ReplyText(msg *openwechat.Message) error {
 		return err
 	}
 
-	// 回复@我的用户
+	// 去除markdown语法并回复@我的用户
+	reply = removeMarkdown(reply)
 	reply = strings.TrimSpace(reply)
 	reply = strings.Trim(reply, "\n")
 	atText := "@" + groupSender.NickName
-	replyText := atText + `
-	--输入"help"查看帮助--
-	` + reply
+	replyText := atText + "\n--输入help查看帮助--\n" + reply
 	log.Printf("Sending reply to group: %s\n", replyText)
 	_, err = msg.ReplyText(replyText)
 	if err != nil {
